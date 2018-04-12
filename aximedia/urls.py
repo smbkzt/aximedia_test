@@ -11,9 +11,9 @@ urlpatterns = [
     url(r'^login/$', todo_views.LoginView.as_view()),
     url(r'^logout/$', todo_views.LogoutView.as_view()),
 
-    url(r'^todos/$', todo_views.ToDoView.as_view()),
+    url(r'^todos/$', todo_views.AllToDoView.as_view()),
     url(r'^todos/(?P<todo_id>\d+)/$',
-        todo_views.TasksView.as_view()),
+        todo_views.AllTasksView.as_view()),
     url(r'^todos/(?P<todo_id>\d+)/task/(?P<task_id>\d+)/$',
         todo_views.SpecificTaskView.as_view()),
 

@@ -11,10 +11,12 @@ from todo.serializers import (LoginSerializer, RegistrationSerializer,
 
 
 class RegistrationView(APIView):
+    """Registration process"""
     permission_classes = ()
 
     def post(self, request):
         serializer = RegistrationSerializer(data=request.data)
+
         if serializer.is_valid():
             data = serializer.data
             username = data['email'].split("@")[0]
@@ -22,13 +24,18 @@ class RegistrationView(APIView):
             u.email = data['email']
             u.set_password(data['password'])
             u.save()
+            # org = request.data['organizations']
+            # organizations = [Organization.objects.get(
+            #     id=i) for i in org.split(",")]
+            # profile = Profile.objects.create(user=u,
+            # organizations=organizations)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors,
                         status=status.HTTP_403_FORBIDDEN)
 
 
-class ToDoView(APIView):
+class AllToDoView(APIView):
     """ The view describing the user's company's todo-lists"""
     permission_classes = (permissions.IsAuthenticated, )
 
@@ -37,23 +44,26 @@ class ToDoView(APIView):
             user_id = request.user.id
             organization_id = Profile.objects.get(
                 user=user_id).current_organization_id
+
             todos = ToDo.objects.filter(organization=organization_id)
             serialize = ToDoSerializer(todos, many=True)
             return Response(serialize.data, status=status.HTTP_200_OK)
+
         except ObjectDoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
     def post(self, request):
         todo_name = request.data['name']
-
         organization_id = Profile.objects.get(
             user=request.user.id).current_organization_id
+
         organization = Organization.objects.get(id=organization_id)
         ToDo.objects.create(name=todo_name, organization=organization)
         return Response(status=status.HTTP_201_CREATED)
 
 
-class TasksView(APIView):
+class AllTasksView(APIView):
+    """Get all tasks list and add new tasks to a specific todo"""
     permission_classes = (permissions.IsAuthenticated, )
 
     def get(self, request, todo_id):
@@ -62,12 +72,9 @@ class TasksView(APIView):
                 user=request.user.id).current_organization_id
             # Check whether the todo is in needed company
             todo = ToDo.objects.get(id=todo_id, organization=organization_id)
-            if todo:
-                serialize = TaskSerializer(
-                    Task.objects.filter(todo=todo), many=True)
-                return Response(serialize.data, status=status.HTTP_200_OK)
-            else:
-                raise ObjectDoesNotExist
+            serialize = TaskSerializer(
+                Task.objects.filter(todo=todo), many=True)
+            return Response(serialize.data, status=status.HTTP_200_OK)
         except ObjectDoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
@@ -93,24 +100,49 @@ class TasksView(APIView):
 
 
 class SpecificTaskView(APIView):
+    """The view of a specific task of certain todo"""
     permission_classes = (permissions.IsAuthenticated, )
 
+    def check_access(self, request, todo_id):
+        try:
+            organization_id = Profile.objects.get(
+                user=request.user.id).current_organization_id
+            # Check whether the todo is in needed company
+            ToDo.objects.get(id=todo_id, organization=organization_id)
+        except ObjectDoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
     def get(self, request, todo_id, task_id):
-        task = Task.objects.get(id=task_id, todo=todo_id)
-        task_serialzer = TaskSerializer(task)
-        return Response(task_serialzer.data, status=status.HTTP_200_OK)
+        self.check_access(request, todo_id)
+        try:
+            task = Task.objects.get(id=task_id, todo=todo_id)
+            task_serialzer = TaskSerializer(task)
+            return Response(task_serialzer.data, status=status.HTTP_200_OK)
+        except ObjectDoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
     def put(self, request, todo_id, task_id):
-        task = Task.objects.get(id=task_id, todo=todo_id)
-        if request.data.get('task_name', ""):
+        self.check_access(request, todo_id)
+        try:
+            task = Task.objects.get(id=task_id, todo=todo_id)
             task.task_name = request.data['task_name']
+            return Response(status=status.HTTP_200_OK)  # Check
+        except ObjectDoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
     def delete(self, request, todo_id, task_id):
-        Task.objects.get(id=task_id, todo=todo_id).delete()
-        return Response(status=status.HTTP_200_OK)
+        self.check_access(request, todo_id)
+        try:
+            task = Task.objects.get(id=task_id, todo=todo_id)
+            task.delete()
+            return Response(status=status.HTTP_200_OK)
+        except ObjectDoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
 
 class LoginView(APIView):
+    """Login process"""
+
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
@@ -125,6 +157,8 @@ class LoginView(APIView):
 
 
 class LogoutView(APIView):
+    """Logout"""
+
     def get(self, request):
         if request.user.is_authenticated:
             logout(request)
