@@ -9,6 +9,8 @@ from todo.models import Profile, Task, ToDo, Organization
 from todo.serializers import (LoginSerializer, RegistrationSerializer,
                               TaskSerializer, ToDoSerializer)
 
+# TODO: Check all responses
+
 
 class RegistrationView(APIView):
     """Registration process"""
@@ -70,7 +72,7 @@ class AllTasksView(APIView):
         try:
             organization_id = Profile.objects.get(
                 user=request.user.id).current_organization_id
-            # Check whether the todo is in needed company
+            # Checks whether the todo is in needed company
             todo = ToDo.objects.get(id=todo_id, organization=organization_id)
             serialize = TaskSerializer(
                 Task.objects.filter(todo=todo), many=True)
@@ -126,6 +128,7 @@ class SpecificTaskView(APIView):
         try:
             task = Task.objects.get(id=task_id, todo=todo_id)
             task.task_name = request.data['task_name']
+            task.save()
             return Response(status=status.HTTP_200_OK)  # Check
         except ObjectDoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
